@@ -1,0 +1,561 @@
+﻿<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Three框架</title>
+        <script src="js/Three.js" data-ke-src="js/Three.js"></script>
+		<script src="js/Stats.js" data-ke-src="js/Stats.js"></script>
+		<script src="js/Tween.js" data-ke-src="js/Tween.js"></script>
+        <style type="text/css">
+			html, body {
+				width: 100%;
+				height: 100%;
+			}
+			body {
+				background-color: #ffffff;
+				margin: 0;
+				overflow: hidden;
+				font-family: arial;
+			}
+			div#canvas-frame {
+                border: none;
+                cursor: pointer;
+                width: 100%;
+				height: 100%;
+                background-color: #EEEEEE;
+            }
+
+        </style>
+        <script>
+			/**
+			 * 初始化页面
+			 */
+            function init() {
+
+				window.addEventListener( 'resize', onWindowResize, false );			// 添加窗口缩放事件监听
+				document.addEventListener("mousedown", onDocumentMouseDown, false);	// 添加鼠标左键单机事件监听
+				document.addEventListener("mousemove", onDocumentMouseMove, false);	// 添加鼠标左键拖放事件监听
+				document.addEventListener("mouseup", onDocumentMouseUp, false);		// 添加鼠标左键释放事件监听
+				document.addEventListener('DOMMouseScroll', onMouseScroll, false);	// 添加鼠标滚轮事件监听
+                initEngine();		// 初始化引擎
+                initScene();		// 初始化场景
+                initLight();		// 设置光源
+                initCamera();		// 设置摄像机
+				cam_y_default = 200;
+                initObject();		// 初始化程序组件
+				initTween();		// 引入并使用tween动画插件
+                //render();
+				animate();			// 设置组件动画
+            }
+		
+			/**
+			 * 初始化引擎
+			 */
+            var renderer;
+			var stats;
+            function initEngine() {
+				// 设置渲染器的大小为窗口的内宽度，也就是内容区的宽度
+                width = document.body.clientWidth;//document.getElementById('canvas-frame').clientWidth;
+                height = document.body.clientHeight;//.getElementById('canvas-frame').clientHeight;
+                renderer = new THREE.WebGLRenderer({   // 渲染器
+                    antialias:true,       //是否开启反锯齿  
+					precision:"highp",    //着色精度选择  
+					alpha:true,           //是否可以设置背景色透明  
+					premultipliedAlpha:false,  
+					stencil:false,  
+					preserveDrawingBuffer:true, //是否保存绘图缓冲  
+                });
+                renderer.setSize(width, height);	// 设置渲染器大小
+                document.getElementById('canvas-frame').appendChild(renderer.domElement);	// domElement元素，表示渲染器中的画布
+                renderer.setClearColor(0xFFFFFF, 1.0);
+				
+				//性能测试组件
+				stats = new Stats();
+                stats.domElement.style.position = 'absolute';
+                stats.domElement.style.left = '0px';
+                stats.domElement.style.top = '0px';
+                document.getElementById('canvas-frame').appendChild(stats.domElement);
+            }
+
+			/**
+			 * 初始化场景
+			 */
+            var scene;
+            function initScene() {
+                scene = new THREE.Scene();  // 场景
+            }
+
+			/**
+			 * 设置光源
+			 */
+            var light;
+            function initLight() {
+                light = new THREE.AmbientLight(0xFFFFFF);
+                light.position.set(100, 100, 200);
+                scene.add(light);
+                /*// 方向光
+                light = new THREE.DirectionalLight(0xFFFFFF);
+                light.position.set(0, 0,1);
+                scene.add(light);*/
+            }
+
+			/**
+			 * 设置摄像机
+			 */
+            var camera;
+			var cam_x_default = 0;
+			var cam_y_default = 0;
+			var cam_z_default = 1000;
+            function initCamera() {
+				//视野角：fov
+				//纵横比：aspect
+				//相机离视体积最近的距离：near
+				//相机离视体积最远的距离：far
+				camera = new THREE.PerspectiveCamera(45, width / height, 1, 10000);	// 透视相机
+                //(0) 声明全局的变量（对象）
+				//(1) 设置透视投影的相机
+				//(2) 设置相机的位置坐标
+				//(3) 设置相机的上为「z」轴方向
+				//(4) 设置视野的中心坐标
+                camera.position.x = cam_x_default;
+                camera.position.y = cam_y_default;
+                camera.position.z = cam_z_default;
+                camera.up.x = 0;
+                camera.up.y = 1;	// 设置y轴为上方向
+                camera.up.z = 0;
+                camera.lookAt(//new THREE.Vector3(0,0,0)
+				{
+                    x : 0,
+                    y : 0,
+                    z : 0
+                });
+            }
+
+			/**
+			 * 初始化程序组件
+			 */
+			var sphere;var container;
+            function initObject() {
+				// 创建地面(使用face生成三角)
+				var floor_geometry = new THREE.PlaneGeometry( 2000, 2000, 100, 100 );
+				floor_geometry.rotateX( - Math.PI / 2 );
+				for ( var i = 0, l = floor_geometry.vertices.length; i < l; i ++ ) {
+					var vertex = floor_geometry.vertices[ i ];
+					vertex.x += Math.random() * 20 - 10;
+					vertex.y += Math.random() * 2;
+					vertex.z += Math.random() * 20 - 10;
+				}
+				for ( var i = 0, l = floor_geometry.faces.length; i < l; i ++ ) {
+					var face = floor_geometry.faces[ i ];
+					face.vertexColors[ 0 ] = new THREE.Color().setHSL( Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+					face.vertexColors[ 1 ] = new THREE.Color().setHSL( Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+					face.vertexColors[ 2 ] = new THREE.Color().setHSL( Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+				}
+				var floor_material = new THREE.MeshBasicMaterial( { vertexColors: THREE.VertexColors } );
+				var floor = new THREE.Mesh( floor_geometry, floor_material );
+				floor.position.y =  -100;
+				scene.add( floor );
+				
+				// 创建后墙面
+				var geo_bg = new THREE.PlaneGeometry( 2*width, width, 1, 1 );
+				geo_bg.vertices[0].uv = new THREE.Vector2(0,0);
+				geo_bg.vertices[1].uv = new THREE.Vector2(2,0);
+				geo_bg.vertices[2].uv = new THREE.Vector2(2,2);
+				geo_bg.vertices[3].uv = new THREE.Vector2(0,2);
+				// 导入纹理
+				var texture = THREE.ImageUtils.loadTexture("image/mars.jpg",null,function(t)
+				{
+				});
+				var material = new THREE.MeshBasicMaterial({map:texture});	//设置纹理样式
+				var mesh_bg = new THREE.Mesh( geo_bg,material );
+				mesh_bg.position.z =  -width/2;
+				mesh_bg.position.y =  200;
+				scene.add( mesh_bg );
+
+				// 创建黑白地面
+				var texture = THREE.ImageUtils.loadTexture('image/black.png', {}, function() {
+
+				});
+				texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+				texture.repeat.set(4, 4);
+				var plane = new THREE.Mesh(new THREE.PlaneGeometry(2*width, width),
+						new THREE.MeshLambertMaterial({map: texture}));
+				plane.position.y =  -100;
+				plane.rotation.x = -Math.PI / 2;
+				scene.add(plane);
+		
+				//画一条空间线段
+                var geometry = new THREE.Geometry();
+                var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors} );
+                var color1 = new THREE.Color( 0x444444 ), color2 = new THREE.Color( 0xFF0000 );
+
+                // 线的材质可以由2点的颜色决定
+                var p1 = new THREE.Vector3( -100, -50, 20 );
+                var p2 = new THREE.Vector3(  100, 50, -20 );
+                geometry.vertices.push(p1);
+                geometry.vertices.push(p2);
+                geometry.colors.push( color1, color2 );
+
+                var line = new THREE.Line( geometry, material, THREE.LinePieces );
+                scene.add(line);
+				
+				//画网格
+                var geometry1 = new THREE.Geometry();
+                geometry1.vertices.push( new THREE.Vector3( 0, 0, - 500 ) );
+                geometry1.vertices.push( new THREE.Vector3( 0, 0, 500 ) );
+				var geometry2 = new THREE.Geometry();
+                geometry2.vertices.push( new THREE.Vector3( - 500, 0, 0 ) );
+                geometry2.vertices.push( new THREE.Vector3( 500, 0, 0 ) );
+
+                for ( var i = 0; i <= 20; i ++ ) {
+
+                    var line = new THREE.Line( geometry1, new THREE.LineBasicMaterial( { color: 0x000000, opacity: 0.2 } ) );
+					line.position.y =  -100;
+                    line.position.x = ( i * 50 ) - 500;
+                    scene.add( line );
+
+                    var line = new THREE.Line( geometry2, new THREE.LineBasicMaterial( { color: 0x000000, opacity: 0.2 } ) );
+					line.position.y =  -100;
+                    line.position.z = ( i * 50 ) - 500;
+                    line.rotation.x = 90 * Math.PI / 180;
+                    scene.add( line );
+
+                }
+				
+
+				//创建球体
+				var texture  = new THREE.ImageUtils.loadTexture('image/earthmap1k.jpg');  
+				sphere = new THREE.Mesh(  
+					new THREE.SphereGeometry(50,50,50),  
+					new THREE.MeshLambertMaterial({map: texture})  
+				); 
+				sphere.position.set(500,200,0); 
+				scene.add(sphere); 
+
+				//创建正方体
+				geometry = new THREE.BoxGeometry( 40, 40, 40 );
+				for ( var i = 0, l = geometry.faces.length; i < l; i ++ ) {
+					var face = geometry.faces[ i ];
+					face.vertexColors[ 0 ] = new THREE.Color().setHSL( Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+					face.vertexColors[ 1 ] = new THREE.Color().setHSL( Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+					face.vertexColors[ 2 ] = new THREE.Color().setHSL( Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+				}
+				
+				material = new THREE.MeshPhongMaterial( { specular: 0xffffff, shading: THREE.FlatShading, vertexColors: THREE.VertexColors } );
+				material.opacity = 0.9;
+				var mesh = new THREE.Mesh( geometry, material );
+				mesh.position.x = -50;
+				mesh.position.y = 0;
+				mesh.position.z = Math.floor( Math.random() * 20 - 10 ) * 20;
+				scene.add( mesh );
+				material.color.setHSL( Math.random() * 0.2 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
+				scene.add( mesh );
+
+				// 创建集装箱模块
+				container = Box.createNew(scene);
+				container.addToScene();
+				//container.move(500);
+				
+				
+            }
+			
+			/**
+			 * 集装箱模块
+			 */
+			var Box = {
+				
+				createNew: function(curscene){
+					var geometry = new THREE.CubeGeometry( 500, 200, 200,4,4);	// 设置集装箱几何大小
+					geometry.vertices[0].uv = new THREE.Vector2(0,0);			// 设置顶点
+					geometry.vertices[1].uv = new THREE.Vector2(2,0);
+					geometry.vertices[2].uv = new THREE.Vector2(2,2);
+					geometry.vertices[3].uv = new THREE.Vector2(0,2);
+                   
+					var urls = [ 		//图片集合
+						'image/c_front.png',	//x+
+						'image/c_behind.png',	//x-
+						'image/c_top.png',	//y+
+						'image/c_bottom.png',		//y-
+						'image/c_left.png',	//z+
+						'image/c_right.png',	//z-
+					];
+
+					var materials = [];	//纹理集合
+					for (var i = 0; i < 6; i++) {	//设置集装箱各面纹理
+						var texCube = THREE.ImageUtils.loadTexture( urls[i] );
+						texCube.format = THREE.RGBAFormat;
+						materials.push( new THREE.MeshBasicMaterial( {
+							color: "white",			// Color will be multiplied by texture color.
+														//side: THREE.BackSide,	// IMPORTANT: To see the inside of the cube,
+												// back faces must be rendered!
+							map: texCube,
+							transparent: true,		//指定是否使用透明
+							opacity: 0.9			//表明透明度
+						} ) );
+					}
+　　　　　　		var box = {};
+　　　　　　		box.cen = new THREE.Mesh(  new THREE.SphereGeometry(20,20,20),  new THREE.MeshBasicMaterial({color: 0xff0000})); 
+					box.cube = new THREE.Mesh( geometry, new THREE.MeshFaceMaterial(materials) );
+					box.position = box.cen.position;
+　　　　　　		box.addToScene = function(){ box.cen.position.z =  -100;box.cube.position.z =  -100;curscene.add( box.cen ); curscene.add( box.cube );};
+					box.setPos = function(x=0,y=0,z=-100) {box.cen.position.set(x,y,z);box.cube.position.set(x,y,z);}
+					box.move = function(x=0,y=0,z=0) {
+						if(x!=0){box.cen.position.x +=x;box.cube.position.x +=x;}
+						if(y!=0){box.cen.position.y +=y;box.cube.position.y +=y;}
+						if(z!=0){box.cen.position.z +=z;box.cube.position.z +=z;}
+					};
+					box.changeSize = function(scale=0.5) {box.cube.scale.x +=scale;}
+					box.toogleSkin = function(tex=[], curcolor=0xffffff,trans=true,op=0.9) {
+						var texture;
+						if(tex[0]){
+							texture = tex;
+						}else{
+							texture = urls;
+						}
+						var materials2=[];
+						for (var i = 0; i < 6; i++) {
+							var texCube = THREE.ImageUtils.loadTexture(texture[i]);
+							texCube.format = THREE.RGBAFormat;
+							materials2.push( new THREE.MeshBasicMaterial( {
+								color: curcolor,			// Color will be multiplied by texture color.
+								//side: THREE.BackSide,	// IMPORTANT: To see the inside of the cube,
+													// back faces must be rendered!
+								map: texCube,
+								transparent: trans,		//指定是否使用透明
+								opacity: op			//表明透明度
+							} ) );
+						}
+						box.cube.material= new THREE.MeshFaceMaterial(materials2);
+					
+					};
+					
+　　　　　　		return box;
+　　　　		}
+
+			}
+			
+			/**
+			 * 使用tween动画插件
+			 */
+			function initTween()
+			{
+				new TWEEN.Tween( container.position)
+				.to( { x: -100, y: -0}, 3000 ).repeat( Infinity ).start();
+			}
+			function render()
+            {
+                renderer.clear();
+                renderer.render(scene, camera);
+                requestAnimationFrame(render);
+				stats.update();
+            }
+			
+			/**
+			 * 设置组件动画
+			 */
+			var flag=true;
+			function animate()
+            {	
+				camera.position.x = cam_x_default + longitude;
+				camera.position.y = cam_y_default + latitude;
+				camera.position.z = cam_z_default + depth;
+				
+                renderer.render(scene, camera);
+                requestAnimationFrame(animate);
+				
+				stats.update();
+				//TWEEN.update();
+				if(container.position.x<-500 && flag){
+					flag = false;
+				}
+				else if(container.position.x>200 && !flag){
+					flag = true;
+				}
+				if(flag)
+					container.move(-1);
+				else
+					container.move(1);
+				sphere.rotation.y += 1 * Math.PI / 180;
+            }
+			
+			/**
+			 * 重置画面
+			 */
+			function redefault()
+            {
+				longitude = 0;
+				latitude = 0;
+				depth = 0;
+				flag=true;
+				container.setPos();
+				sphere.rotation.y = 90 * Math.PI / 180;
+            }
+
+			/**
+			 * 添加鼠标左键单机事件监听
+			 */
+			var manualControl = false;
+			var longitude = 0;
+			var latitude = 0;
+			var depth = 0;
+			var savedX;
+			var savedY;
+			var savedZ;
+			var savedLongitude;
+			var savedLatitude;
+			var savedDepth;
+			function onDocumentMouseDown(event){
+
+				event.preventDefault();
+
+				manualControl = true;
+
+				savedX = event.clientX;
+				savedY = event.clientY;
+
+				savedLongitude = longitude;
+				savedLatitude = latitude;
+
+			}
+			/**
+			 * 添加鼠标左键拖放事件监听
+			 */
+			function onDocumentMouseMove(event){
+
+				if(manualControl){
+					longitude = (savedX - event.clientX) * 0.1 + savedLongitude;
+					latitude = (event.clientY - savedY) * 0.1 + savedLatitude;
+				}
+
+			}
+			/**
+			 * 添加鼠标左键释放事件监听
+			 */
+			function onDocumentMouseUp(event){
+
+				manualControl = false;
+
+			}
+			/**
+			 * 添加鼠标滚轮事件监听
+			 */
+			function onMouseScroll(event){
+				savedDepth = depth;
+				depth = event.detail*10 + savedDepth;
+				//alert(event.detail);
+
+			}
+			
+			/**
+			 * 添加窗口缩放事件监听
+			 */
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			
+			/**
+			 * 报警
+			 */
+			var has_alarm = false;	
+			function alarm()
+            {
+				if(!has_alarm){
+					has_alarm = true;
+					sphere.material.color = new THREE.Color( 0xff0000 );         
+					sphere.material.needsUpdate = true;
+					
+					var urls = [ 
+					'image/bg.jpg',	//x+
+					'image/bg.jpg',	//x-
+					'image/bg.jpg',	//y+
+					'image/bg.jpg',		//y-
+					'image/bg.jpg',	//z+
+					'image/bg.jpg',	//z-
+					];
+					container.toogleSkin(urls,0x48D1CC,true,0.6);
+				
+				}else{
+					has_alarm = false;
+					sphere.material.color = new THREE.Color( 0xffffff );         
+					sphere.material.needsUpdate = true;
+					
+					
+					container.toogleSkin();
+				}
+				
+            }
+			
+			/**
+			 * 切换集装箱尺寸
+			 */
+			var has_change = false;	
+			function changeSize()
+            {sphere.geometry.computeBoundingBox ();var bBox = sphere.geometry.boundingBox;alert(bBox.min.y);
+				if(!has_change){
+					has_change = true;
+					container.changeSize(0.5);
+				}else{
+					has_change = false;
+					container.changeSize(-0.5);
+				}
+            }
+			
+			/**
+			 * 切换摄像机角度
+			 */
+			 var cam_angle=1;
+			function switchAngle()
+            {	cam_x_default = 0;
+					cam_y_default = 0;
+					cam_z_default = 0;cam_y_default = 0;latitude = 0;
+				if(cam_angle%4==0){
+					cam_angle=1;
+					camera.rotation.y += 90 * Math.PI / 180;
+					cam_x_default = 0;
+					cam_y_default = 0;
+					cam_z_default = 1000;
+				}else if(cam_angle%4==1){
+					cam_angle++;
+					camera.rotation.y += 90 * Math.PI / 180;
+					cam_x_default = 1000;
+					cam_y_default = 0;
+					cam_z_default = 0;
+				}else if(cam_angle%4==2){
+					cam_angle++;
+					camera.rotation.y += 90 * Math.PI / 180;
+					cam_x_default = 0;
+					cam_y_default = 0;
+					cam_z_default = -1000;
+				}else if(cam_angle%4==3){
+					cam_angle++;
+					camera.rotation.y += 90 * Math.PI / 180;
+					cam_x_default = -1000;
+					cam_y_default = 0;
+					cam_z_default = 0;
+				}
+            }
+        </script>
+    </head>
+
+    <body onload="init();">
+        <div id="canvas-frame"></div>
+		<div id="toolbar" style="display: block; position: absolute; right: 10px; top: 75px; width: 32px; height: 480px; border-radius: 5px; background: rgba(255, 255, 255, 0.74902);">
+			<img src="res/reset.png" title="场景复位" style="position: absolute; left: 4px; top: 16px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;" onclick='redefault();'>
+			<img src="res/connection.png" title="切换角度" style="position: absolute; left: 4px; top: 48px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;" onclick='switchAngle();'>
+			<img src="res/person.png" title="人工路径" style="position: absolute; left: 4px; top: 80px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/fps.png" title="调试信息" style="position: absolute; left: 4px; top: 112px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/edit.png" title="拖拽机柜" style="position: absolute; left: 4px; top: 144px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/temperature.png" title="温度图" style="position: absolute; left: 4px; top: 176px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/space.png" title="可用空间" style="position: absolute; left: 4px; top: 208px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/usage.png" title="机柜利用率" style="position: absolute; left: 4px; top: 240px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/air.png" title="空调风向" style="position: absolute; left: 4px; top: 272px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/smoke.png" title="烟雾监控" style="position: absolute; left: 4px; top: 304px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/water.png" title="漏水监测" style="position: absolute; left: 4px; top: 336px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/security.png" title="防盗监测" style="position: absolute; left: 4px; top: 368px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;">
+			<img src="res/power.png" title="修改尺寸" style="position: absolute; left: 4px; top: 400px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;" onclick='changeSize();'>
+			<img src="res/alarm.png" title="颜色告警" style="position: absolute; left: 4px; top: 432px; pointer-events: auto; cursor: pointer; width: 24px; height: 24px;" onclick='alarm();'>
+		</div>
+    </body>
+</html>
